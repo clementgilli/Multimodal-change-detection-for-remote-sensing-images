@@ -3,6 +3,8 @@
 *.tar
 *.nc
 data/patches_cache/
+.DS_Store
+data/.DS_Store
 
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
