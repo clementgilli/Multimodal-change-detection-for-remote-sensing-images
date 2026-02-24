@@ -1,0 +1,17 @@
+name: merlin_env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.12
+  - numpy
+  - scipy
+  - rasterio
+  - matplotlib
+  - tqdm
+  - pillow
+  - pip
+  - pip:
+      - opencv-python
+      - torch
+      - torchvision
