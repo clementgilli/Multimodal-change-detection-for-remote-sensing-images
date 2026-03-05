@@ -27,6 +27,7 @@ def from_hyper_to_multi(img_hyper, srf_matrix_norm):
 def prepare_dataset_offline(file_paths, patch_size=256, srf_path=DEFAULT_SRF_PATH):
     srf_matrix = np.load(srf_path)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    c_multi = srf_matrix.shape[1]
     
     for file in tqdm(file_paths):
         base_name = Path(file).name.replace('-prs.nc', '')
@@ -37,44 +38,43 @@ def prepare_dataset_offline(file_paths, patch_size=256, srf_path=DEFAULT_SRF_PAT
             continue
             
         with xr.open_dataset(file) as ds:
-            img_hyper = ds["sr"].to_numpy().astype(np.float32)
+            h, w, c_hyper = ds["sr"].shape
             
-        h, w, c_hyper = img_hyper.shape
-        c_multi = srf_matrix.shape[1]
-           
-        img_multi = from_hyper_to_multi(img_hyper, srf_matrix)
-        
-        h_crop = h - (h % patch_size)
-        w_crop = w - (w % patch_size)
-        n_patches_h = h_crop // patch_size
-        n_patches_w = w_crop // patch_size
-        total_patches = n_patches_h * n_patches_w
+            h_crop = h - (h % patch_size)
+            w_crop = w - (w % patch_size)
+            n_patches_h = h_crop // patch_size
+            n_patches_w = w_crop // patch_size
+            total_patches = n_patches_h * n_patches_w
             
-        X_mmap = np.lib.format.open_memmap(
-            str(y_path), mode='w+', dtype=np.float32, 
-            shape=(total_patches, c_multi, patch_size, patch_size)
-        )
-        
-        y_mmap = np.lib.format.open_memmap(
-            str(x_path), mode='w+', dtype=np.float32, 
-            shape=(total_patches, c_hyper, patch_size, patch_size)
-        )
-        
-        patch_idx = 0
-        for i in range(n_patches_h):
-            for j in range(n_patches_w):
-                r = i * patch_size
-                c = j * patch_size
-                
-                patch_hyper = img_hyper[r:r+patch_size, c:c+patch_size, :]
-                patch_multi = img_multi[r:r+patch_size, c:c+patch_size, :]
-                
-                X_mmap[patch_idx] = np.transpose(patch_multi, (2, 0, 1))
-                y_mmap[patch_idx] = np.transpose(patch_hyper, (2, 0, 1))
-                
-                patch_idx += 1
-                
-        del X_mmap, y_mmap, img_hyper, img_multi
+            X_mmap = np.lib.format.open_memmap(
+                str(x_path), mode='w+', dtype=np.float32, 
+                shape=(total_patches, c_multi, patch_size, patch_size)
+            )
+            y_mmap = np.lib.format.open_memmap(
+                str(y_path), mode='w+', dtype=np.float32, 
+                shape=(total_patches, c_hyper, patch_size, patch_size)
+            )
+            
+            patch_idx = 0
+            for i in range(n_patches_h):
+                for j in range(n_patches_w):
+                    r = i * patch_size
+                    c = j * patch_size
+                    
+                    patch_hyper = ds["sr"][r:r+patch_size, c:c+patch_size, :].to_numpy().astype(np.float32)
+                    
+                    hyper_2d = patch_hyper.reshape(-1, c_hyper)              
+                    multi_2d = np.dot(hyper_2d, srf_matrix)         
+                    patch_multi = multi_2d.reshape(patch_size, patch_size, c_multi).astype(np.float32)
+                    
+                    X_mmap[patch_idx] = np.transpose(patch_multi, (2, 0, 1)) 
+                    y_mmap[patch_idx] = np.transpose(patch_hyper, (2, 0, 1))
+                    
+                    patch_idx += 1
+            
+            X_mmap.flush()
+            y_mmap.flush()
+            del X_mmap, y_mmap
         
 class SpectralDataset(Dataset):
     def __init__(self, cache_dir=CACHE_DIR):
