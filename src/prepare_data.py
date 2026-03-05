@@ -4,7 +4,7 @@ import argparse
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser(description="Prepare dataset by converting hyperspectral images to multispectral and creating patches.")
-    parser.add_argument("--patch_size", type=int, default=64, help="Size of the patches to create")
+    parser.add_argument("--patch_size", type=int, default=256, help="Size of the patches to create")
     
     args = parser.parse_args()
     PATCH_SIZE = args.patch_size

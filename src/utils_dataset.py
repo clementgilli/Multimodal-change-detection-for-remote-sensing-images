@@ -24,14 +24,12 @@ def from_hyper_to_multi(img_hyper, srf_matrix_norm):
     image_multispec = multi_2d.reshape(h, w, srf_matrix_norm.shape[1])
     return image_multispec
 
-def prepare_dataset_offline(file_paths, patch_size=64, srf_path=DEFAULT_SRF_PATH):
+def prepare_dataset_offline(file_paths, patch_size=256, srf_path=DEFAULT_SRF_PATH):
     srf_matrix = np.load(srf_path)
-    
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     
     for file in tqdm(file_paths):
         base_name = Path(file).name.replace('-prs.nc', '')
-        
         x_path = CACHE_DIR / f'{base_name}_X_patches.npy'
         y_path = CACHE_DIR / f'{base_name}_y_patches.npy'
         
@@ -39,21 +37,44 @@ def prepare_dataset_offline(file_paths, patch_size=64, srf_path=DEFAULT_SRF_PATH
             continue
             
         with xr.open_dataset(file) as ds:
-            img_hyper = ds["sr"].to_numpy()
+            img_hyper = ds["sr"].to_numpy().astype(np.float32)
             
-        h, w, c = img_hyper.shape
+        h, w, c_hyper = img_hyper.shape
+        c_multi = srf_matrix.shape[1]
+           
         img_multi = from_hyper_to_multi(img_hyper, srf_matrix)
         
         h_crop = h - (h % patch_size)
         w_crop = w - (w % patch_size)
-        img_hyper = img_hyper[:h_crop, :w_crop, :]
-        img_multi = img_multi[:h_crop, :w_crop, :]
+        n_patches_h = h_crop // patch_size
+        n_patches_w = w_crop // patch_size
+        total_patches = n_patches_h * n_patches_w
+            
+        X_mmap = np.lib.format.open_memmap(
+            str(y_path), mode='w+', dtype=np.float32, 
+            shape=(total_patches, c_multi, patch_size, patch_size)
+        )
         
-        X_patches = rearrange(img_multi, '(h p1) (w p2) c -> (h w) c p1 p2', p1=patch_size, p2=patch_size)
-        y_patches = rearrange(img_hyper, '(h p1) (w p2) c -> (h w) c p1 p2', p1=patch_size, p2=patch_size)
+        y_mmap = np.lib.format.open_memmap(
+            str(x_path), mode='w+', dtype=np.float32, 
+            shape=(total_patches, c_hyper, patch_size, patch_size)
+        )
         
-        np.save(x_path, X_patches.astype(np.float32))
-        np.save(y_path, y_patches.astype(np.float32))
+        patch_idx = 0
+        for i in range(n_patches_h):
+            for j in range(n_patches_w):
+                r = i * patch_size
+                c = j * patch_size
+                
+                patch_hyper = img_hyper[r:r+patch_size, c:c+patch_size, :]
+                patch_multi = img_multi[r:r+patch_size, c:c+patch_size, :]
+                
+                X_mmap[patch_idx] = np.transpose(patch_multi, (2, 0, 1))
+                y_mmap[patch_idx] = np.transpose(patch_hyper, (2, 0, 1))
+                
+                patch_idx += 1
+                
+        del X_mmap, y_mmap, img_hyper, img_multi
         
 class SpectralDataset(Dataset):
     def __init__(self, cache_dir=CACHE_DIR):
