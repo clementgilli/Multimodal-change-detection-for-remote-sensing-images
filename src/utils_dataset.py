@@ -177,8 +177,8 @@ class SpectralDatasetAug(Dataset):
 
 def create_dataloaders(cache_dir=CACHE_DIR, batch_size=16, train_ratio=0.7, val_ratio=0.15):
   
-    train_base_ds = SpectralDataset(cache_dir, augment=True)
-    eval_base_ds = SpectralDataset(cache_dir, augment=False)
+    train_base_ds = SpectralDatasetAug(cache_dir, augment=True)
+    eval_base_ds = SpectralDatasetAug(cache_dir, augment=False)
     
     total_size = len(train_base_ds)
     indices = list(range(total_size))
