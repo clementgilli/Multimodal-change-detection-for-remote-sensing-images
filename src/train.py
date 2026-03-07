@@ -96,7 +96,7 @@ def main():
     parser.add_argument("--activation",
                         type=str,
                         default="silu",
-                        choices=["relu", "leakyrelu", "silu", "gelu"])
+                        choices=["relu", "leakyrelu", "silu"])
 
     parser.add_argument("--interpolation_mode",
                         type=str,
@@ -124,10 +124,6 @@ def main():
                         type=int,
                         default=8)
 
-    parser.add_argument("--cache_dir",
-                        type=str,
-                        required=True)
-
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -139,7 +135,6 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     train_loader, val_loader, test_loader = create_dataloaders(
-        args.cache_dir,
         batch_size=args.batch_size
     )
 
