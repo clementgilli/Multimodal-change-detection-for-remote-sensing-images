@@ -1,5 +1,6 @@
 import os
 import glob
+import random
 import numpy as np
 import xarray as xr
 import torch
@@ -113,3 +114,59 @@ class SpectralDataset(Dataset):
         y_patch = self.mmap_y_arrays[file_idx][patch_idx].copy()
         
         return torch.from_numpy(x_patch), torch.from_numpy(y_patch)
+    
+class SpectralDatasetAug(Dataset):
+    def __init__(self, cache_dir=CACHE_DIR):
+
+        self.x_files = sorted(glob.glob(str(cache_dir / "*_X_patches.npy")))
+        self.y_files = sorted(glob.glob(str(cache_dir / "*_y_patches.npy")))
+        
+        assert len(self.x_files) > 0, f"No patch found in {cache_dir}. Run prepare_dataset_offline() first."
+        assert len(self.x_files) == len(self.y_files), "Mismatch between X and y files."
+        
+        self.index_map = []
+        self.mmap_x_arrays = []
+        self.mmap_y_arrays = []
+        
+        for file_idx, (x_path, y_path) in enumerate(zip(self.x_files, self.y_files)):
+            x_mmap = np.load(x_path, mmap_mode='r')
+            y_mmap = np.load(y_path, mmap_mode='r')
+            
+            self.mmap_x_arrays.append(x_mmap)
+            self.mmap_y_arrays.append(y_mmap)
+            
+            num_patches = x_mmap.shape[0]
+            
+            for patch_idx in range(num_patches):
+                self.index_map.append((file_idx, patch_idx))
+                
+        print(f"Loaded {len(self.index_map)} patches from {len(self.x_files)} files.")
+
+    def augment_pair(self, x, y):
+        if random.random() < 0.5:
+            x = torch.flip(x, dims=[2])
+            y = torch.flip(y, dims=[2])
+
+        if random.random() < 0.5:
+            x = torch.flip(x, dims=[1])
+            y = torch.flip(y, dims=[1])
+
+        k = torch.randint(0, 4, (1,)).item()
+        x = torch.rot90(x, k, dims=[1,2])
+        y = torch.rot90(y, k, dims=[1,2])
+
+        return x, y
+
+    def __len__(self):
+        return len(self.index_map)
+
+    def __getitem__(self, idx):
+        file_idx, patch_idx = self.index_map[idx]
+        
+        x_patch = self.mmap_x_arrays[file_idx][patch_idx].copy()
+        y_patch = self.mmap_y_arrays[file_idx][patch_idx].copy()
+
+        x = torch.from_numpy(x_patch)
+        y = torch.from_numpy(y_patch)
+
+        return self.augment_pair(x, y)
