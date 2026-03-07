@@ -5,6 +5,7 @@ import torch.optim as optim
 from models import UNet, GradualExpansionUNet
 from losses import SpectralLoss
 from utils_dataset import create_dataloaders
+from tqdm import tqdm
 
 def build_model(args):
 
@@ -27,6 +28,8 @@ def build_model(args):
     return model
 
 
+from tqdm import tqdm
+
 def train_one_epoch(model, loader, optimizer, criterion, device):
 
     model.train()
@@ -35,7 +38,9 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
     total_mse = 0
     total_sam = 0
 
-    for x, y in loader:
+    pbar = tqdm(loader, desc="Training")
+    
+    for x, y in pbar:
 
         x = x.to(device)
         y = y.to(device)
@@ -52,6 +57,8 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
         total_loss += loss.item()
         total_mse += mse.item()
         total_sam += sam.item()
+        
+        pbar.set_postfix(Loss=f"{loss.item():.4f}", MSE=f"{mse.item():.4f}", SAM=f"{sam.item():.4f}")
 
     n = len(loader)
 
@@ -67,7 +74,8 @@ def validate(model, loader, criterion, device):
     total_mse = 0
     total_sam = 0
 
-    for x, y in loader:
+    pbar = tqdm(loader, desc="Validation")
+    for x, y in pbar:
 
         x = x.to(device)
         y = y.to(device)
@@ -79,6 +87,8 @@ def validate(model, loader, criterion, device):
         total_loss += loss.item()
         total_mse += mse.item()
         total_sam += sam.item()
+        
+        pbar.set_postfix(Loss=f"{loss.item():.4f}", MSE=f"{mse.item():.4f}", SAM=f"{sam.item():.4f}")
 
     n = len(loader)
 
@@ -130,7 +140,7 @@ def main():
 
     model = build_model(args).to(device)
 
-    criterion = SpectralLoss(lambda_sam=args.lambda_sam)
+    criterion = SpectralLoss(lambda_sam=args.lambda_sam).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 

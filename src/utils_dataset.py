@@ -175,7 +175,7 @@ class SpectralDatasetAug(Dataset):
 
         return x, y
 
-def create_dataloaders(cache_dir=CACHE_DIR, batch_size=16, train_ratio=0.7, val_ratio=0.15):
+def create_dataloaders(cache_dir=CACHE_DIR, batch_size=16, train_ratio=0.8, val_ratio=0.1):
   
     train_base_ds = SpectralDatasetAug(cache_dir, augment=True)
     eval_base_ds = SpectralDatasetAug(cache_dir, augment=False)
