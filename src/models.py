@@ -109,7 +109,7 @@ class GradualExpansionUNet(nn.Module):
         return self.outc(x)      # [B, 230, H, W]
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=230, base_features=64, interpolation_mode='ConvTranspose2d', learning_mode='standard', activation='silu'):
+    def __init__(self, in_channels=230, base_features=64, interpolation_mode='ConvTranspose2d', learning_mode='residual', activation='silu'):
         """
            interpolation_mode in ['ConvTranspose2d', 'Bilinear']. With ConvTranspose2d, 
            the upsampling is learnable (and could therefore introduce artefacts). With Bilinear, 

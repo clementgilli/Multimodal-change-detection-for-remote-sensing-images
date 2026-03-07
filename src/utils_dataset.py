@@ -4,7 +4,7 @@ import random
 import numpy as np
 import xarray as xr
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, DataLoader, Subset
 from einops import rearrange
 from tqdm import tqdm
 from pathlib import Path
@@ -116,7 +116,8 @@ class SpectralDataset(Dataset):
         return torch.from_numpy(x_patch), torch.from_numpy(y_patch)
     
 class SpectralDatasetAug(Dataset):
-    def __init__(self, cache_dir=CACHE_DIR):
+    def __init__(self, cache_dir=CACHE_DIR, augment=False):
+        self.augment = augment
 
         self.x_files = sorted(glob.glob(str(cache_dir / "*_X_patches.npy")))
         self.y_files = sorted(glob.glob(str(cache_dir / "*_y_patches.npy")))
@@ -169,4 +170,37 @@ class SpectralDatasetAug(Dataset):
         x = torch.from_numpy(x_patch)
         y = torch.from_numpy(y_patch)
 
-        return self.augment_pair(x, y)
+        if self.augment:
+            x, y = self.augment_pair(x, y)
+
+        return x, y
+
+def create_dataloaders(cache_dir, batch_size=16, train_ratio=0.7, val_ratio=0.15):
+  
+    train_base_ds = SpectralDataset(cache_dir, augment=True)
+    eval_base_ds = SpectralDataset(cache_dir, augment=False)
+    
+    total_size = len(train_base_ds)
+    indices = list(range(total_size))
+    
+    np.random.seed(42)  
+    np.random.shuffle(indices)
+    
+    train_size = int(train_ratio * total_size)
+    val_size = int(val_ratio * total_size)
+    
+    train_indices = indices[:train_size]
+    val_indices = indices[train_size : train_size + val_size]
+    test_indices = indices[train_size + val_size:]
+    
+    train_dataset = Subset(train_base_ds, train_indices)
+    val_dataset = Subset(eval_base_ds, val_indices)
+    test_dataset = Subset(eval_base_ds, test_indices)
+    
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    
+    print(f"Splits -> Train: {len(train_dataset)} | Val: {len(val_dataset)} | Test: {len(test_dataset)}")
+    
+    return train_loader, val_loader, test_loader
