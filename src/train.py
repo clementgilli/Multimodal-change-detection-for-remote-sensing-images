@@ -133,6 +133,10 @@ def main():
     parser.add_argument("--batch_size",
                         type=int,
                         default=8)
+    
+    parser.add_argument("--num_workers",
+                        type=int,
+                        default=4)
 
     args = parser.parse_args()
 
@@ -145,7 +149,8 @@ def main():
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
     train_loader, val_loader, test_loader = create_dataloaders(
-        batch_size=args.batch_size
+        batch_size=args.batch_size,
+        num_workers=args.num_workers
     )
 
     best_val_loss = float("inf")
