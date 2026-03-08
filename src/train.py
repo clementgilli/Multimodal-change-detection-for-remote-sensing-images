@@ -137,12 +137,20 @@ def main():
     parser.add_argument("--num_workers",
                         type=int,
                         default=4)
+    
+    parser.add_argument("--load_model",
+                        type=str,
+                        default=None)
 
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = build_model(args).to(device)
+    
+    if args.load_model is not None:
+        model.load_state_dict(torch.load(args.load_model, map_location=device))
+        print(f"Model loaded from {args.load_model}")
 
     criterion = SpectralLoss(lambda_sam=args.lambda_sam).to(device)
 
@@ -171,7 +179,7 @@ def main():
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save(model.state_dict(), "best_model2.pth")
+            torch.save(model.state_dict(), "best_model.pth")
 
     print("Training finished.")
 
