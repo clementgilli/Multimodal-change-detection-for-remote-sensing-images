@@ -27,7 +27,7 @@ class SpectralLoss(nn.Module):
         
         sam_map = torch.acos(cos_sim)
         sam = torch.mean(sam_map)
-
+        #sam = torch.Tensor([0.]).to(pred.device)
         loss = mse + self.lambda_sam * sam
 
         return loss, mse, sam
