@@ -5,6 +5,7 @@
 data/patches_cache/
 .DS_Store
 data/.DS_Store
+*.pth
 
 ### JupyterNotebooks ###
 # gitignore template for Jupyter Notebooks
