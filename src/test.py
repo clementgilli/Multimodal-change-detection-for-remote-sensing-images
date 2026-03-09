@@ -30,8 +30,8 @@ def build_model(args):
 def evalSR(HSI0,HSI_est):
     # HSI0: ground-truth HSI (cube)
     # HSI_est: estimated HSI (cube)
-    HSI0 = HSI0.reshape(HSI0.shape[0],HSI0.shape[1]*HSI0.shape[2])
-    HSI_est = HSI_est.reshape(HSI_est.shape[0],HSI_est.shape[1]*HSI_est.shape[2])
+    #HSI0 = HSI0.reshape(HSI0.shape[0],HSI0.shape[1]*HSI0.shape[2])
+    #HSI_est = HSI_est.reshape(HSI_est.shape[0],HSI_est.shape[1]*HSI_est.shape[2])
     
     metriqueTab = torch.zeros(HSI0.shape[1])
     for ii in range(HSI0.shape[1]):
