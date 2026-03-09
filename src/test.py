@@ -88,6 +88,11 @@ def main():
                         type=str,
                         default="silu",
                         choices=["relu", "leakyrelu", "silu"])
+    
+    parser.add_argument("--learning_mode",
+                        type=str,
+                        default="residual",
+                        choices=["standard", "residual"])
 
     parser.add_argument("--interpolation_mode",
                         type=str,
