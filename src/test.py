@@ -4,7 +4,7 @@ import torch.optim as optim
 
 from models import UNet, GradualExpansionUNet
 from losses import SpectralLoss
-from utils_dataset import create_dataloaders
+from utils_dataset import create_dataloaders, SpectralDatasetAug
 from tqdm import tqdm
 
 def build_model(args):
@@ -130,6 +130,7 @@ def main():
     criterion = SpectralLoss(lambda_sam=args.lambda_sam).to(device)
 
     _, _, test_loader = create_dataloaders(
+        dataset_class=SpectralDatasetAug,
         batch_size=args.batch_size,
         num_workers=args.num_workers
     )

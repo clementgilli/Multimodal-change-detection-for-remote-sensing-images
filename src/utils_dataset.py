@@ -80,8 +80,8 @@ def prepare_dataset_offline(file_paths, patch_size=256, srf_path=DEFAULT_SRF_PAT
 class SpectralDataset(Dataset):
     def __init__(self, cache_dir=CACHE_DIR):
 
-        self.x_files = sorted(glob.glob(str(cache_dir / "*_X_patches.npy")))
-        self.y_files = sorted(glob.glob(str(cache_dir / "*_y_patches.npy")))
+        self.x_files = sorted(glob.glob(str(cache_dir / "*_MSI_simulated.npy")))
+        self.y_files = sorted(glob.glob(str(cache_dir / "*_HSI_true.npy")))
         
         assert len(self.x_files) > 0, f"No patch found in {cache_dir}. Run prepare_dataset_offline() first."
         assert len(self.x_files) == len(self.y_files), "Mismatch between X and y files."
@@ -119,8 +119,8 @@ class SpectralDatasetAug(Dataset):
     def __init__(self, cache_dir=CACHE_DIR, augment=False):
         self.augment = augment
 
-        self.x_files = sorted(glob.glob(str(cache_dir / "*_X_patches.npy")))
-        self.y_files = sorted(glob.glob(str(cache_dir / "*_y_patches.npy")))
+        self.x_files = sorted(glob.glob(str(cache_dir / "*_MSI_simulated.npy")))
+        self.y_files = sorted(glob.glob(str(cache_dir / "*_HSI_true.npy")))
         
         assert len(self.x_files) > 0, f"No patch found in {cache_dir}. Run prepare_dataset_offline() first."
         assert len(self.x_files) == len(self.y_files), "Mismatch between X and y files."
@@ -174,11 +174,77 @@ class SpectralDatasetAug(Dataset):
             x, y = self.augment_pair(x, y)
 
         return x, y
+    
+class IncertitudeDataset(Dataset):
+    def __init__(self, cache_dir, augment=False):
+        self.augment = augment
 
-def create_dataloaders(cache_dir=CACHE_DIR, batch_size=16, train_ratio=0.8, val_ratio=0.1, num_workers=4):
-  
-    train_base_ds = SpectralDatasetAug(cache_dir, augment=True)
-    eval_base_ds = SpectralDatasetAug(cache_dir, augment=False)
+        self.msi_files = sorted(glob.glob(str(Path(cache_dir) / "*_MSI_simulated.npy")))
+        self.hsi_true_files = sorted(glob.glob(str(Path(cache_dir) / "*_HSI_true.npy")))
+        self.hsi_sim_files = sorted(glob.glob(str(Path(cache_dir) / "*_HSI_simulated.npy")))
+        
+        assert len(self.msi_files) == len(self.hsi_true_files) == len(self.hsi_sim_files), "Mismatch between MSI, HSI true and HSI simulated files."
+        
+        self.index_map = []
+        self.mmap_msi = []
+        self.mmap_hsi_true = []
+        self.mmap_hsi_sim = []
+        
+        for f_idx, (f_msi, f_hsi_t, f_hsi_s) in enumerate(zip(self.msi_files, self.hsi_true_files, self.hsi_sim_files)):
+            msi = np.load(f_msi, mmap_mode='r')
+            hsi_t = np.load(f_hsi_t, mmap_mode='r')
+            hsi_s = np.load(f_hsi_s, mmap_mode='r')
+            
+            self.mmap_msi.append(msi)
+            self.mmap_hsi_true.append(hsi_t)
+            self.mmap_hsi_sim.append(hsi_s)
+            
+            for p_idx in range(msi.shape[0]):
+                self.index_map.append((f_idx, p_idx))
+
+    def __len__(self):
+        return len(self.index_map)
+
+    def augment_triplet(self, x_msi, x_hsi, y_res):
+        if random.random() < 0.5:
+            x_msi = torch.flip(x_msi, dims=[2])
+            x_hsi = torch.flip(x_hsi, dims=[2])
+            y_res = torch.flip(y_res, dims=[2])
+
+        if random.random() < 0.5:
+            x_msi = torch.flip(x_msi, dims=[1])
+            x_hsi = torch.flip(x_hsi, dims=[1])
+            y_res = torch.flip(y_res, dims=[1])
+
+        k = torch.randint(0, 4, (1,)).item()
+        x_msi = torch.rot90(x_msi, k, dims=[1,2])
+        x_hsi = torch.rot90(x_hsi, k, dims=[1,2])
+        y_res = torch.rot90(y_res, k, dims=[1,2])
+
+        return x_msi, x_hsi, y_res
+
+    def __getitem__(self, idx):
+        f_idx, p_idx = self.index_map[idx]
+        
+        msi = torch.from_numpy(self.mmap_msi[f_idx][p_idx].copy())
+        hsi_true = torch.from_numpy(self.mmap_hsi_true[f_idx][p_idx].copy())
+        hsi_sim = torch.from_numpy(self.mmap_hsi_sim[f_idx][p_idx].copy())
+
+        X = torch.cat([msi, hsi_sim], dim=0)
+        
+        y = hsi_true - hsi_sim
+
+        if self.augment:
+            c_msi = msi.shape[0]
+            msi_aug, hsi_sim_aug, y = self.augment_triplet(X[:c_msi], X[c_msi:], y)
+            X = torch.cat([msi_aug, hsi_sim_aug], dim=0)
+
+        return X , y    
+    
+def create_dataloaders(dataset_class, cache_dir=CACHE_DIR, batch_size=16, train_ratio=0.8, val_ratio=0.1, num_workers=4):
+    
+    train_base_ds = dataset_class(cache_dir, augment=True)
+    eval_base_ds = dataset_class(cache_dir, augment=False)
     
     total_size = len(train_base_ds)
     indices = list(range(total_size))
