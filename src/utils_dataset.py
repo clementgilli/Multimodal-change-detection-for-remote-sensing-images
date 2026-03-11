@@ -175,7 +175,7 @@ class SpectralDatasetAug(Dataset):
 
         return x, y
     
-class IncertitudeDataset(Dataset):
+class UncertaintyDataset(Dataset):
     def __init__(self, cache_dir, augment=False):
         self.augment = augment
 
@@ -232,7 +232,7 @@ class IncertitudeDataset(Dataset):
 
         X = torch.cat([msi, hsi_sim], dim=0)
         
-        y = hsi_true - hsi_sim
+        y = torch.abs(hsi_true - hsi_sim)
 
         if self.augment:
             c_msi = msi.shape[0]

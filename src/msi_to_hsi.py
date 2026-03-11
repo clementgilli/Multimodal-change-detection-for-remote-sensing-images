@@ -37,26 +37,25 @@ def generate_hsi_simulated(model, cache_dir, device, batch_size=8):
             if hsi_sim_file.exists():
                 continue
                 
-            msi_mmap = np.load(msi_file, mmap_mode='r')
-            num_patches, c_msi, h, w = msi_mmap.shape
+            msi_data = np.load(msi_file) 
+            num_patches, c_msi, h, w = msi_data.shape
             
-            dummy_input = torch.from_numpy(msi_mmap[0:1].copy()).to(device)
+            dummy_input = torch.from_numpy(msi_data[0:1]).to(device)
             c_hsi = model(dummy_input).shape[1]
             
-            hsi_sim_mmap = np.lib.format.open_memmap(
-                str(hsi_sim_file), mode='w+', dtype=np.float32, 
-                shape=(num_patches, c_hsi, h, w)
-            )
+            hsi_sim_data = np.zeros((num_patches, c_hsi, h, w), dtype=np.float32)
             
             for i in range(0, num_patches, batch_size):
-                batch_msi = torch.from_numpy(msi_mmap[i:i+batch_size].copy()).to(device)
-                                
+                batch_msi = torch.from_numpy(msi_data[i:i+batch_size]).to(device)
+                batch_msi = torch.clamp(batch_msi, min=0.0, max=1.0)
+                
                 batch_hsi_sim = model(batch_msi)
                 
-                hsi_sim_mmap[i:i+batch_size] = batch_hsi_sim.cpu().numpy()
+                hsi_sim_data[i:i+batch_size] = batch_hsi_sim.cpu().numpy()
                 
-            hsi_sim_mmap.flush()
-            del msi_mmap, hsi_sim_mmap
+            np.save(hsi_sim_file, hsi_sim_data)
+                        
+            del msi_data, hsi_sim_data
             
             
 if __name__ == "__main__":
