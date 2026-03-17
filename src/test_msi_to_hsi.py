@@ -77,6 +77,7 @@ def test(model, loader, criterion, device):
 
     return total_loss / n, total_mse / n, total_sam / n, total_err / n, total_sad_db / n
 
+@torch.no_grad()
 def test_per_channel(model, loader, criterion, device, num_channels=230):
     """
     Compute per-channel MSE and global SAM over the test set.
