@@ -2,6 +2,7 @@
 *.code-workspace
 *.tar
 *.nc
+data/uncertainty_evaluation
 data/patches_cache/
 .DS_Store
 data/.DS_Store

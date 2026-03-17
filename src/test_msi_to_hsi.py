@@ -1,4 +1,6 @@
+import os
 import argparse
+import numpy as np
 import torch
 import torch.optim as optim
 
@@ -75,6 +77,41 @@ def test(model, loader, criterion, device):
 
     return total_loss / n, total_mse / n, total_sam / n, total_err / n, total_sad_db / n
 
+def test_per_channel(model, loader, criterion, device, num_channels):
+    """
+    Compute per-channel MSE and global SAM over the test set.
+    Returns:
+        mse_per_channel: np.array of shape [num_channels]
+        sam_global: scalar average SAM over batches
+
+    Criterion should be SpectralLoss with reduction_mode='per_channel'
+    """
+    model.eval()
+
+    total_mse = torch.zeros(num_channels, device=device)
+    total_sam = 0.0
+
+    pbar = tqdm(loader, desc="Testing per channel")
+    for x, y in pbar:
+        x = x.to(device)
+        y = y.to(device)
+
+        pred = model(x)
+
+        _, mse_ch, sam_batch = criterion(pred, y)
+
+        total_mse += mse_ch
+        total_sam += sam_batch.item()
+
+        pbar.set_postfix(MSE=f"{mse_ch.mean().item():.4f}", SAM=f"{sam_batch.item():.4f}")
+
+    n = len(loader)
+
+    mse_per_channel = (total_mse / n).cpu().numpy()
+    sam_global = total_sam / n
+
+    return mse_per_channel, sam_global
+
 def main():
 
     parser = argparse.ArgumentParser()
@@ -127,22 +164,33 @@ def main():
     else:
         print(f"No model loaded")
 
-    criterion = SpectralLoss(lambda_sam=args.lambda_sam).to(device)
-
     _, _, test_loader = create_dataloaders(
         dataset_class=SpectralDatasetAug,
         batch_size=args.batch_size,
         num_workers=args.num_workers
     )
 
-    
+    #criterion = SpectralLoss(lambda_sam=args.lambda_sam).to(device)
 
-    test_loss, test_mse, test_sam, test_err, test_sad_db = test(
-        model, test_loader, criterion, device
-    )
+    #test_loss, test_mse, test_sam, test_err, test_sad_db = test(
+    #    model, test_loader, criterion, device
+    #)
 
-    print(f"Test Loss={test_loss:.6f} MSE={test_mse:.6f} SAM={test_sam:.6f} \nERR={test_err:.6f} %, SAD={test_sad_db:.6f} dB")
+    #print(f"Test Loss={test_loss:.6f} MSE={test_mse:.6f} SAM={test_sam:.6f} \nERR={test_err:.6f} %, SAD={test_sad_db:.6f} dB")
 
+    criterion = SpectralLoss(lambda_sam=args.lambda_sam, reduction_mode='per_channel').to(device)
+
+    test_mse_per_channel, _ = test_per_channel(
+        model, test_loader, criterion, device)
+
+    save_dir = "data/msi_to_hsi_evaluation"
+    os.makedirs(save_dir, exist_ok=True)
+
+    mse_path = f"{save_dir}/msi_to_hsi_mse_per_channel.npy"
+
+    np.save(mse_path, test_mse_per_channel)
+
+    print(f"Saved MSE in {mse_path}")
 
 if __name__ == "__main__":
     main()
