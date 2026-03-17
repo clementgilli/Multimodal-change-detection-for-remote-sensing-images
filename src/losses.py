@@ -16,13 +16,12 @@ class SpectralLoss(nn.Module):
         self.reduction_mode = reduction_mode
 
     def forward(self, pred, target):
-        B, C, H, W = pred.shape
         
-        mse_map = F.mse_loss(pred, target, reduction='none') # [B,C,H,W]
         if self.reduction_mode == 'per_channel':
-            mse = mse_map.mean(dim=(0,2,3)) 
+            mse_per_channel = ((pred - target)**2).mean(dim=(0, 2, 3))  # [C]
+            mse = mse_per_channel
         else:
-            mse = mse_map.mean()
+            mse = F.mse_loss(pred, target)
 
         dot_product = torch.sum(pred * target, dim=1)
         

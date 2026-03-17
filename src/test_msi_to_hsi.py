@@ -77,7 +77,7 @@ def test(model, loader, criterion, device):
 
     return total_loss / n, total_mse / n, total_sam / n, total_err / n, total_sad_db / n
 
-def test_per_channel(model, loader, criterion, device, num_channels):
+def test_per_channel(model, loader, criterion, device, num_channels=230):
     """
     Compute per-channel MSE and global SAM over the test set.
     Returns:
