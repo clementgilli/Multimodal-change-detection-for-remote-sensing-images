@@ -182,7 +182,8 @@ def main():
     criterion = SpectralLoss(lambda_sam=args.lambda_sam, reduction_mode='per_channel').to(device)
 
     test_mse_per_channel, _ = test_per_channel(
-        model, test_loader, criterion, device)
+        model, test_loader, criterion, device, num_channels=230
+    )
 
     save_dir = "data/msi_to_hsi_evaluation"
     os.makedirs(save_dir, exist_ok=True)
