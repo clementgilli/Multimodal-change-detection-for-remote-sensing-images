@@ -328,3 +328,75 @@ class NAFNet(nn.Module):
         mod_pad_w = (self.padder_size - w % self.padder_size) % self.padder_size
         x = F.pad(x, (0, mod_pad_w, 0, mod_pad_h))
         return x
+    
+class DualBranchUNet(nn.Module):
+    def __init__(self, n_msi=12, n_hsi=230, base_features=64, interpolation_mode='ConvTranspose2d', activation='silu', final_op='abs'):
+        """
+        final_op in ['abs', 'softplus', 'square']
+        """
+        super().__init__()
+
+        if interpolation_mode not in ['ConvTranspose2d', 'Bilinear']:
+            raise ValueError("interpolation_mode must be 'ConvTranspose2d' or 'Bilinear'")
+        if final_op not in ['abs', 'softplus', 'square']:
+            raise ValueError("final_op must be 'abs', 'softplus', or 'square'")
+        
+        self.interpolation_mode = interpolation_mode
+        self.final_op = final_op
+
+        # base_features // 2 so we retrieve base_features after concatenation
+        self.branch_msi = DoubleConv(n_msi, base_features // 2)
+        self.branch_hsi = DoubleConv(n_hsi, base_features // 2)
+
+        self.down1 = nn.Sequential(nn.MaxPool2d(2), DoubleConv(base_features, base_features*2, activation))   # [B, 128, H/2, W/2]
+        self.down2 = nn.Sequential(nn.MaxPool2d(2), DoubleConv(base_features*2, base_features*4, activation)) # [B, 256, H/4, W/4]
+        self.down3 = nn.Sequential(nn.MaxPool2d(2), DoubleConv(base_features*4, base_features*8, activation)) # [B, 512, H/8, W/8]
+
+        if self.interpolation_mode == 'ConvTranspose2d':
+            self.up1a = nn.ConvTranspose2d(base_features*8, base_features*4, kernel_size=2, stride=2)  # [B, 256, H/4, W/4]
+            self.up2a = nn.ConvTranspose2d(base_features*4, base_features*2, kernel_size=2, stride=2)  # [B, 128, H/2, W/2]
+            self.up3a = nn.ConvTranspose2d(base_features*2, base_features, kernel_size=2, stride=2)    # [B, 64, H, W]
+        else: # Bilinear
+            self.up1a = BilinearUpConv(base_features*8, base_features*4)
+            self.up2a = BilinearUpConv(base_features*4, base_features*2)
+            self.up3a = BilinearUpConv(base_features*2, base_features)
+
+        self.up1b = DoubleConv(base_features*8, base_features*4, activation)    
+        self.up2b = DoubleConv(base_features*4, base_features*2, activation)    
+        self.up3b = DoubleConv(base_features*2, base_features, activation)    
+
+        self.outc = nn.Conv2d(base_features, n_hsi, kernel_size=1) 
+
+    def forward(self, x):
+        x_msi = x[:, :12, :, :]   
+        x_hsi = x[:, 12:, :, :]   
+
+        feat_msi = self.branch_msi(x_msi) # [B, 32, H, W]
+        feat_hsi = self.branch_hsi(x_hsi) # [B, 32, H, W]
+
+        s1 = torch.cat([feat_msi, feat_hsi], dim=1) # [B, 64, H, W]
+
+        s2 = self.down1(s1)           # [B, 128, H/2, W/2]
+        s3 = self.down2(s2)           # [B, 256, H/4, W/4]
+        b  = self.down3(s3)           # [B, 512, H/8, W/8] 
+        
+        out = self.up1a(b)            # [B, 256, H/4, W/4]
+        out = torch.cat([out, s3], 1) # [B, 512, H/4, W/4]
+        out = self.up1b(out)          # [B, 256, H/4, W/4]
+        
+        out = self.up2a(out)          # [B, 128, H/2, W/2]
+        out = torch.cat([out, s2], 1) # [B, 256, H/2, W/2]
+        out = self.up2b(out)          # [B, 128, H/2, W/2]
+        
+        out = self.up3a(out)          # [B, 64, H, W]
+        out = torch.cat([out, s1], 1) # [B, 128, H, W] (On utilise le s1 fusionné !)
+        out = self.up3b(out)          # [B, 64, H, W]
+        
+        res = self.outc(out)  
+        
+        if self.final_op == 'abs':
+            return torch.abs(res)
+        elif self.final_op == 'softplus':
+            return F.softplus(res)
+        elif self.final_op == 'square':
+            return res ** 2

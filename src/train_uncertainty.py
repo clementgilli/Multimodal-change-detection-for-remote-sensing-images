@@ -2,7 +2,7 @@ import argparse
 import torch
 import torch.optim as optim
 
-from models import UNet, NAFNet
+from models import UNet, NAFNet, DualBranchUNet
 from utils_dataset import create_dataloaders, UncertaintyDataset
 from tqdm import tqdm
 
@@ -24,6 +24,16 @@ def build_model(args):
             enc_blk_nums=args.enc_blk_nums,
             middle_blk_num=args.middle_blk_num,   
             dec_blk_nums=args.dec_blk_nums
+        )
+
+    elif args.model == 'doublebranchunet':
+        model = DualBranchUNet(
+            n_msi = 12, 
+            n_hsi = 230, 
+            base_features=64,
+            interpolation_mode=args.interpolation_mode,
+            activation=args.activation,
+            final_op = args.final_op
         )
 
     else:
@@ -142,6 +152,12 @@ def main():
                         type=int,
                         nargs="+",
                         default=[1, 1, 1, 1])
+    
+    parser.add_argument("--final_op",
+                        type=str,
+                        default='abs',
+                        choices=["abs", "softplus", "square"]
+                        )
 
     args = parser.parse_args()
 
