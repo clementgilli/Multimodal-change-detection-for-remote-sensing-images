@@ -110,7 +110,7 @@ def main():
         model.load_state_dict(torch.load(args.load_model, map_location=device))
         print(f"Model loaded from {args.load_model}")
 
-    criterion = torch.nn.functional.mse_loss
+    criterion = torch.nn.L1Loss() #torch.nn.functional.mse_loss
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
