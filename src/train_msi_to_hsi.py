@@ -27,9 +27,6 @@ def build_model(args):
 
     return model
 
-
-from tqdm import tqdm
-
 def train_one_epoch(model, loader, optimizer, criterion, device):
 
     model.train()

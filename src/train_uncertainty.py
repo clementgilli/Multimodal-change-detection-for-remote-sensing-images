@@ -2,9 +2,34 @@ import argparse
 import torch
 import torch.optim as optim
 
-from models import UNet
+from models import UNet, NAFNet
 from utils_dataset import create_dataloaders, UncertaintyDataset
 from tqdm import tqdm
+
+def build_model(args):
+
+    if args.model == "unet":
+        model = UNet(
+            in_channels=242,
+            activation=args.activation,
+            interpolation_mode=args.interpolation_mode,
+            learning_mode="standard"
+        )
+
+    elif args.model == "nafnet":
+        model = NAFNet(
+            in_channels=242, 
+            out_channels=230, 
+            width=args.width,          
+            enc_blk_nums=args.enc_blk_nums,
+            middle_blk_num=args.middle_blk_num,   
+            dec_blk_nums=args.dec_blk_nums
+        )
+
+    else:
+        raise ValueError("Unknown model")
+
+    return model
 
 def train_one_epoch(model, loader, optimizer, criterion, device):
 
@@ -94,17 +119,35 @@ def main():
     parser.add_argument("--load_model",
                         type=str,
                         default=None)
+    
+    parser.add_argument("--model",
+                        type=str,
+                        default="unet",
+                        choices=["unet", "nafnet"])
+    
+    parser.add_argument("--width",
+                        type=int,
+                        default=64)
+    
+    parser.add_argument("--enc_blk_nums",
+                        type=int,
+                        nargs="+",
+                        default=[1, 2, 4, 8])
+    
+    parser.add_argument("--middle_blk_num",
+                        type=int,
+                        default=12)
+    
+    parser.add_argument("--dec_blk_nums",
+                        type=int,
+                        nargs="+",
+                        default=[1, 1, 1, 1])
 
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = UNet(
-            in_channels=242,
-            activation=args.activation,
-            interpolation_mode=args.interpolation_mode,
-            learning_mode="standard"
-            ).to(device)
+    model = build_model(args).to(device)
     
     if args.load_model is not None:
         model.load_state_dict(torch.load(args.load_model, map_location=device))
