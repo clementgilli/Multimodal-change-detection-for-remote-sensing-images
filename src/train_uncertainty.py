@@ -13,7 +13,8 @@ def build_model(args):
             in_channels=242,
             activation=args.activation,
             interpolation_mode=args.interpolation_mode,
-            learning_mode="standard"
+            learning_mode="standard",
+            drop_out_rate=args.drop_out_rate
         )
 
     elif args.model == "nafnet":
@@ -47,7 +48,8 @@ def build_model(args):
             middle_blk_num=args.middle_blk_num,   
             dec_blk_nums=args.dec_blk_nums,
             drop_out_rate=args.drop_out_rate,
-            final_op = args.final_op
+            final_op = args.final_op,
+            drop_out_rate=args.drop_out_rate
         )
 
     else:

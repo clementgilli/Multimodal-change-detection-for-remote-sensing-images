@@ -109,7 +109,7 @@ class GradualExpansionUNet(nn.Module):
         return self.outc(x)      # [B, 230, H, W]
 
 class UNet(nn.Module):
-    def __init__(self, in_channels=230, out_channels=230, base_features=64, interpolation_mode='ConvTranspose2d', learning_mode='residual', activation='silu'):
+    def __init__(self, in_channels=230, out_channels=230, base_features=64, interpolation_mode='ConvTranspose2d', learning_mode='residual', activation='silu', drop_out_rate=0.):
         """
            interpolation_mode in ['ConvTranspose2d', 'Bilinear']. With ConvTranspose2d, 
            the upsampling is learnable (and could therefore introduce artefacts). With Bilinear, 
@@ -131,9 +131,17 @@ class UNet(nn.Module):
         self.learning_mode = learning_mode
 
         self.inc = DoubleConv(in_channels, base_features, activation)           # [B, 64, H, W]
-        self.down1 = nn.Sequential(nn.MaxPool2d(2), DoubleConv(base_features, base_features*2, activation))   # [B, 128, H/2, W/2]
-        self.down2 = nn.Sequential(nn.MaxPool2d(2), DoubleConv(base_features*2, base_features*4, activation)) # [B, 256, H/4, W/4]
-        self.down3 = nn.Sequential(nn.MaxPool2d(2), DoubleConv(base_features*4, base_features*8, activation)) # [B, 512, H/8, W/8]
+        self.down1 = nn.Sequential(
+            nn.MaxPool2d(2), 
+            DoubleConv(base_features, base_features*2, activation))   # [B, 128, H/2, W/2]
+        self.down2 = nn.Sequential(
+            nn.MaxPool2d(2), 
+            DoubleConv(base_features*2, base_features*4, activation),
+            nn.Dropout2d(p=drop_out_rate)) # [B, 256, H/4, W/4]
+        self.down3 = nn.Sequential(
+            nn.MaxPool2d(2), 
+            DoubleConv(base_features*4, base_features*8, activation),
+            nn.Dropout2d(p=drop_out_rate)) # [B, 512, H/8, W/8]
 
         if self.interpolation_mode == 'ConvTranspose2d':
             self.up1a = nn.ConvTranspose2d(base_features*8, base_features*4, kernel_size=2, stride=2)  # [B, 256, H/4, W/4]
@@ -143,9 +151,13 @@ class UNet(nn.Module):
             self.up1a = BilinearUpConv(base_features*8, base_features*4)
             self.up2a = BilinearUpConv(base_features*4, base_features*2)
             self.up3a = BilinearUpConv(base_features*2, base_features)
-
-        self.up1b = DoubleConv(base_features*8, base_features*4, activation)    
-        self.up2b = DoubleConv(base_features*4, base_features*2, activation)    
+ 
+        self.up1b = nn.Sequential(
+            DoubleConv(base_features*8, base_features*4, activation),
+            nn.Dropout2d(p=drop_out_rate))
+        self.up2b = nn.Sequential(
+            DoubleConv(base_features*4, base_features*2, activation),
+            nn.Dropout2d(p=drop_out_rate))
         self.up3b = DoubleConv(base_features*2, base_features, activation)    
 
         self.outc = nn.Conv2d(base_features, out_channels, kernel_size=1) 
@@ -330,7 +342,7 @@ class NAFNet(nn.Module):
         return x
     
 class DualBranchUNet(nn.Module):
-    def __init__(self, n_msi=12, n_hsi=230, base_features=64, interpolation_mode='ConvTranspose2d', activation='silu', final_op='identity'):
+    def __init__(self, n_msi=12, n_hsi=230, base_features=64, interpolation_mode='ConvTranspose2d', activation='silu', final_op='identity', drop_out_rate=0.):
         """
         final_op in ['identity', 'abs', 'softplus', 'square']
         """
@@ -348,10 +360,18 @@ class DualBranchUNet(nn.Module):
         self.branch_msi = DoubleConv(n_msi, base_features // 2)
         self.branch_hsi = DoubleConv(n_hsi, base_features // 2)
 
-        self.down1 = nn.Sequential(nn.MaxPool2d(2), DoubleConv(base_features, base_features*2, activation))   # [B, 128, H/2, W/2]
-        self.down2 = nn.Sequential(nn.MaxPool2d(2), DoubleConv(base_features*2, base_features*4, activation)) # [B, 256, H/4, W/4]
-        self.down3 = nn.Sequential(nn.MaxPool2d(2), DoubleConv(base_features*4, base_features*8, activation)) # [B, 512, H/8, W/8]
-
+        self.down1 = nn.Sequential(
+            nn.MaxPool2d(2), 
+            DoubleConv(base_features, base_features*2, activation))   # [B, 128, H/2, W/2]
+        self.down2 = nn.Sequential(
+            nn.MaxPool2d(2), 
+            DoubleConv(base_features*2, base_features*4, activation),
+            nn.Dropout2d(p=drop_out_rate)) # [B, 256, H/4, W/4]
+        self.down3 = nn.Sequential(
+            nn.MaxPool2d(2), 
+            DoubleConv(base_features*4, base_features*8, activation),
+            nn.Dropout2d(p=drop_out_rate)) # [B, 512, H/8, W/8]
+        
         if self.interpolation_mode == 'ConvTranspose2d':
             self.up1a = nn.ConvTranspose2d(base_features*8, base_features*4, kernel_size=2, stride=2)  # [B, 256, H/4, W/4]
             self.up2a = nn.ConvTranspose2d(base_features*4, base_features*2, kernel_size=2, stride=2)  # [B, 128, H/2, W/2]
@@ -361,9 +381,13 @@ class DualBranchUNet(nn.Module):
             self.up2a = BilinearUpConv(base_features*4, base_features*2)
             self.up3a = BilinearUpConv(base_features*2, base_features)
 
-        self.up1b = DoubleConv(base_features*8, base_features*4, activation)    
-        self.up2b = DoubleConv(base_features*4, base_features*2, activation)    
-        self.up3b = DoubleConv(base_features*2, base_features, activation)    
+        self.up1b = nn.Sequential(
+            DoubleConv(base_features*8, base_features*4, activation),
+            nn.Dropout2d(p=drop_out_rate))
+        self.up2b = nn.Sequential(
+            DoubleConv(base_features*4, base_features*2, activation),
+            nn.Dropout2d(p=drop_out_rate))
+        self.up3b = DoubleConv(base_features*2, base_features, activation)  
 
         self.outc = nn.Conv2d(base_features, n_hsi, kernel_size=1) 
 
