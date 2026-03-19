@@ -2,7 +2,7 @@ import argparse
 import torch
 import torch.optim as optim
 
-from models import UNet, NAFNet, DualBranchUNet
+from models import UNet, NAFNet, DualBranchUNet, DualBranchNAFNet
 from utils_dataset import create_dataloaders, UncertaintyDataset
 from tqdm import tqdm
 
@@ -23,16 +23,30 @@ def build_model(args):
             width=args.width,          
             enc_blk_nums=args.enc_blk_nums,
             middle_blk_num=args.middle_blk_num,   
-            dec_blk_nums=args.dec_blk_nums
+            dec_blk_nums=args.dec_blk_nums,
+            drop_out_rate=args.drop_out_rate
         )
 
-    elif args.model == 'doublebranchunet':
+    elif args.model == 'dualbranchunet':
         model = DualBranchUNet(
             n_msi = 12, 
             n_hsi = 230, 
             base_features=64,
             interpolation_mode=args.interpolation_mode,
             activation=args.activation,
+            final_op = args.final_op
+        )
+
+    elif args.model == "dualbranchnafnet":
+        model = NAFNet(
+            n_msi = 12, 
+            n_hsi = 230, 
+            out_channels=230, 
+            width=args.width,          
+            enc_blk_nums=args.enc_blk_nums,
+            middle_blk_num=args.middle_blk_num,   
+            dec_blk_nums=args.dec_blk_nums,
+            drop_out_rate=args.drop_out_rate,
             final_op = args.final_op
         )
 
@@ -158,6 +172,9 @@ def main():
                         default='abs',
                         choices=["abs", "softplus", "square"]
                         )
+    parser.add_argument("--drop_out_rate",
+                        type=float,
+                        default=0.)
 
     args = parser.parse_args()
 
