@@ -38,7 +38,7 @@ def build_model(args):
         )
 
     elif args.model == "dualbranchnafnet":
-        model = NAFNet(
+        model = DualBranchNAFNet(
             n_msi = 12, 
             n_hsi = 230, 
             out_channels=230, 
@@ -147,7 +147,7 @@ def main():
     parser.add_argument("--model",
                         type=str,
                         default="unet",
-                        choices=["unet", "nafnet"])
+                        choices=["unet", "nafnet", "dualbranchunet", "dualbranchnafnet"])
     
     parser.add_argument("--width",
                         type=int,
