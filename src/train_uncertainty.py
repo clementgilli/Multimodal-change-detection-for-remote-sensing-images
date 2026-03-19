@@ -175,6 +175,10 @@ def main():
     parser.add_argument("--drop_out_rate",
                         type=float,
                         default=0.)
+    
+    parser.add_argument("--warm_up",
+                        type=bool,
+                        default=False)
 
     args = parser.parse_args()
 
@@ -189,6 +193,9 @@ def main():
     criterion = torch.nn.L1Loss() #torch.nn.functional.mse_loss
 
     optimizer = optim.Adam(model.parameters(), lr=args.lr)
+
+    if args.warm_up:
+        scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.01, total_iters=3) 
 
     train_loader, val_loader, test_loader = create_dataloaders(
         dataset_class=UncertaintyDataset,
@@ -207,6 +214,9 @@ def main():
         val_loss = validate(
             model, val_loader, criterion, device
         )
+
+        if args.warm_up:
+            scheduler.step()
 
         print(f"Epoch {epoch+1}/{args.epochs}")
         print(f"Train Loss={train_loss:.6f}")
