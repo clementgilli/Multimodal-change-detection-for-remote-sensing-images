@@ -330,16 +330,16 @@ class NAFNet(nn.Module):
         return x
     
 class DualBranchUNet(nn.Module):
-    def __init__(self, n_msi=12, n_hsi=230, base_features=64, interpolation_mode='ConvTranspose2d', activation='silu', final_op='abs'):
+    def __init__(self, n_msi=12, n_hsi=230, base_features=64, interpolation_mode='ConvTranspose2d', activation='silu', final_op='identity'):
         """
-        final_op in ['abs', 'softplus', 'square']
+        final_op in ['identity', 'abs', 'softplus', 'square']
         """
         super().__init__()
 
         if interpolation_mode not in ['ConvTranspose2d', 'Bilinear']:
             raise ValueError("interpolation_mode must be 'ConvTranspose2d' or 'Bilinear'")
-        if final_op not in ['abs', 'softplus', 'square']:
-            raise ValueError("final_op must be 'abs', 'softplus', or 'square'")
+        if final_op not in ['identity','abs', 'softplus', 'square']:
+            raise ValueError("final_op must be 'identity', 'abs', 'softplus', or 'square'")
         
         self.interpolation_mode = interpolation_mode
         self.final_op = final_op
@@ -400,6 +400,8 @@ class DualBranchUNet(nn.Module):
             return F.softplus(res)
         elif self.final_op == 'square':
             return res ** 2
+        else:
+            return res
         
 class DualBranchNAFNet(nn.Module):
     def __init__(self, n_msi=12, n_hsi=230, out_channels=230, width=64, middle_blk_num=1, enc_blk_nums=[], dec_blk_nums=[], drop_out_rate=0., final_op='abs', **usl_kwargs):
