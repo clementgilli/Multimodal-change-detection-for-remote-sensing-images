@@ -169,8 +169,8 @@ def main():
     
     parser.add_argument("--final_op",
                         type=str,
-                        default='abs',
-                        choices=["abs", "softplus", "square"]
+                        default='identity',
+                        choices=["identity", "abs", "softplus", "square"]
                         )
     parser.add_argument("--drop_out_rate",
                         type=float,

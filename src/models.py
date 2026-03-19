@@ -414,8 +414,8 @@ class DualBranchNAFNet(nn.Module):
         self.drop_out_rate = drop_out_rate
         self.final_op = final_op
 
-        if final_op not in ['abs', 'softplus', 'square']:
-            raise ValueError("final_op must be 'abs', 'softplus', or 'square'")
+        if final_op not in ['identity', 'abs', 'softplus', 'square']:
+            raise ValueError("final_op must be 'identity', 'abs', 'softplus', or 'square'")
 
         width_msi = width // 2
         width_hsi = width - width_msi # Gère proprement le cas où width serait impair
