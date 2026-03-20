@@ -6,7 +6,7 @@ import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
-from models import UNet
+from models import UNet, NAFNet, DualBranchUNet, DualBranchNAFNet
 from utils_dataset import create_dataloaders, UncertaintyDataset
 from tqdm import tqdm
 
