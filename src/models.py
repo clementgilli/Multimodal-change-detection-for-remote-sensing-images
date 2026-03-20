@@ -458,7 +458,7 @@ class DualBranchNAFNet(nn.Module):
 
         chan = width
         for num in enc_blk_nums:
-            self.encoders.append(nn.Sequential(*[NAFBlock(chan, drop_out_rate=drop_out_rate) for _ in range(num)]))
+            self.encoders.append(nn.Sequential(*[NAFBlock(chan, drop_out_rate=0.) for _ in range(num)]))
             self.downs.append(nn.Conv2d(chan, 2 * chan, 2, 2))
             chan = chan * 2
 
@@ -470,7 +470,7 @@ class DualBranchNAFNet(nn.Module):
                 nn.PixelShuffle(2)
             ))
             chan = chan // 2
-            self.decoders.append(nn.Sequential(*[NAFBlock(chan, drop_out_rate=drop_out_rate) for _ in range(num)]))
+            self.decoders.append(nn.Sequential(*[NAFBlock(chan, drop_out_rate=0.) for _ in range(num)]))
 
         self.padder_size = 2 ** len(self.encoders)
 
