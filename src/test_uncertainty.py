@@ -10,6 +10,55 @@ from models import UNet
 from utils_dataset import create_dataloaders, UncertaintyDataset
 from tqdm import tqdm
 
+def build_model(args):
+
+    if args.model == "unet":
+        model = UNet(
+            in_channels=242,
+            activation=args.activation,
+            interpolation_mode=args.interpolation_mode,
+            learning_mode="standard"
+        )
+
+    elif args.model == "nafnet":
+        model = NAFNet(
+            in_channels=242, 
+            out_channels=230, 
+            width=args.width,          
+            enc_blk_nums=args.enc_blk_nums,
+            middle_blk_num=args.middle_blk_num,   
+            dec_blk_nums=args.dec_blk_nums,
+            drop_out_rate=args.drop_out_rate
+        )
+
+    elif args.model == 'dualbranchunet':
+        model = DualBranchUNet(
+            n_msi = 12, 
+            n_hsi = 230, 
+            base_features=64,
+            interpolation_mode=args.interpolation_mode,
+            activation=args.activation,
+            final_op = args.final_op
+        )
+
+    elif args.model == "dualbranchnafnet":
+        model = DualBranchNAFNet(
+            n_msi = 12, 
+            n_hsi = 230, 
+            out_channels=230, 
+            width=args.width,          
+            enc_blk_nums=args.enc_blk_nums,
+            middle_blk_num=args.middle_blk_num,   
+            dec_blk_nums=args.dec_blk_nums,
+            drop_out_rate=args.drop_out_rate,
+            final_op = args.final_op
+        )
+
+    else:
+        raise ValueError("Unknown model")
+
+    return model
+
 @torch.no_grad()
 def evaluate_per_channel(model, loader, device, num_channels=230):
     model.eval()
@@ -107,17 +156,44 @@ def main():
                         type=str,
                         required=True, 
                         help="Path to the trained uncertainty model (.pth)")
+    
+    parser.add_argument("--model",
+                        type=str,
+                        default="unet",
+                        choices=["unet", "nafnet", "dualbranchunet", "dualbranchnafnet"])
+    
+    parser.add_argument("--width",
+                        type=int,
+                        default=64)
+    
+    parser.add_argument("--enc_blk_nums",
+                        type=int,
+                        nargs="+",
+                        default=[1, 2, 4, 8])
+    
+    parser.add_argument("--middle_blk_num",
+                        type=int,
+                        default=12)
+    
+    parser.add_argument("--dec_blk_nums",
+                        type=int,
+                        nargs="+",
+                        default=[1, 1, 1, 1])
+    
+    parser.add_argument("--final_op",
+                        type=str,
+                        default='identity',
+                        choices=["identity", "abs", "softplus", "square"]
+                        )
+    parser.add_argument("--drop_out_rate",
+                        type=float,
+                        default=0.)
 
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    model = UNet(
-        in_channels=242, 
-        activation=args.activation,
-        interpolation_mode=args.interpolation_mode,
-        learning_mode="standard"
-    ).to(device)
+    model = build_model(args).to(device)
     
     try:
         model.load_state_dict(torch.load(args.load_model, map_location=device))
