@@ -73,10 +73,11 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
         optimizer.zero_grad()
 
         pred = model(x)
-
-        loss = criterion(pred, y)
+        scale = 100.0
+        loss = criterion(scale*pred, scale*y)
 
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optimizer.step()
 
         total_loss += loss.item()
@@ -194,7 +195,7 @@ def main():
 
     criterion = torch.nn.L1Loss() #torch.nn.functional.mse_loss
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    optimizer = optim.AdamW(model.parameters(), lr=args.lr)
 
     if args.warm_up:
         scheduler = torch.optim.lr_scheduler.LinearLR(optimizer, start_factor=0.01, total_iters=3) 
