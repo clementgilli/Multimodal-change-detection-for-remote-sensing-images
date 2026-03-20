@@ -195,3 +195,6 @@ pyrightconfig.json
 # End of https://www.toptal.com/developers/gitignore/api/python,jupyternotebooks
 
 src/test_files.py
+*.out
+*.err
+*.npy

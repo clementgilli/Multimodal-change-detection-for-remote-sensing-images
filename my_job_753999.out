@@ -169,3 +169,6 @@ Val Loss=0.002490
 Epoch 56/100
 Train Loss=0.247560
 Val Loss=0.002521
+Epoch 57/100
+Train Loss=0.251457
+Val Loss=0.002467
