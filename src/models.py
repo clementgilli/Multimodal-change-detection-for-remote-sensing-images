@@ -188,8 +188,6 @@ class UNet(nn.Module):
             return res
         return id + res
     
-
-
 class LayerNormFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, x, weight, bias, eps):
